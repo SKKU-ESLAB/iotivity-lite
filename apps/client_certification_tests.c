@@ -152,6 +152,8 @@ display_menu(void)
   PRINT("-----------------------------------------------\n");
 #endif /* OC_TCP */
   PRINT("-----------------------------------------------\n");
+  PRINT("[40] Discover using site local\n");
+  PRINT("[41] Discover using realm local\n");
   PRINT("[99] Exit\n");
   PRINT("################################################\n");
   PRINT("\nSelect option: \n");
@@ -517,6 +519,30 @@ discover_resources(void)
   pthread_mutex_lock(&app_sync_lock);
   free_all_resources();
   if (!oc_do_ip_discovery_all(&discovery, NULL)) {
+    PRINT("\nERROR: Could not issue discovery request\n");
+  }
+  pthread_mutex_unlock(&app_sync_lock);
+  signal_event_loop();
+}
+
+static void
+discover_site_local_resources(void)
+{
+  pthread_mutex_lock(&app_sync_lock);
+  free_all_resources();
+  if (!oc_do_site_local_ipv6_discovery_all(&discovery, NULL)) {
+    PRINT("\nERROR: Could not issue discovery request\n");
+  }
+  pthread_mutex_unlock(&app_sync_lock);
+  signal_event_loop();
+}
+
+static void
+discover_realm_local_resources(void)
+{
+  pthread_mutex_lock(&app_sync_lock);
+  free_all_resources();
+  if (!oc_do_realm_local_ipv6_discovery_all(&discovery, NULL)) {
     PRINT("\nERROR: Could not issue discovery request\n");
   }
   pthread_mutex_unlock(&app_sync_lock);
@@ -928,6 +954,12 @@ main(void)
       cloud_send_ping();
       break;
 #endif /* OC_TCP */
+    case 40:
+        discover_site_local_resources();
+        break;
+    case 41:
+        discover_realm_local_resources();
+        break;
     case 99:
       handle_signal(0);
       break;

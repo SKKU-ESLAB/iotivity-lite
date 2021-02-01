@@ -74,15 +74,15 @@ void
 oc_send_response(oc_request_t *request, oc_status_t response_code)
 {
 #ifdef OC_SPEC_VER_OIC
-  if (request->origin->version == OIC_VER_1_1_0) {
-    request->response->content_format = APPLICATION_CBOR;
+  if (request->origin && request->origin->version == OIC_VER_1_1_0) {
+    request->response->response_buffer->content_format = APPLICATION_CBOR;
   } else
 #endif /* OC_SPEC_VER_OIC */
   {
-    request->response->content_format = APPLICATION_VND_OCF_CBOR;
+    request->response->response_buffer->content_format =
+      APPLICATION_VND_OCF_CBOR;
   }
-  request->response->response_buffer->response_length =
-    (uint16_t)response_length();
+  request->response->response_buffer->response_length = response_length();
   request->response->response_buffer->code = oc_status_code(response_code);
 }
 
@@ -122,6 +122,26 @@ oc_remove_delayed_callback(void *cb_data, oc_trigger_t callback)
 }
 
 void
+oc_resource_tag_pos_desc(oc_resource_t *resource, oc_pos_description_t pos)
+{
+  resource->tag_pos_desc = pos;
+}
+
+void
+oc_resource_tag_pos_rel(oc_resource_t *resource, double x, double y, double z)
+{
+  resource->tag_pos_rel[0] = x;
+  resource->tag_pos_rel[1] = y;
+  resource->tag_pos_rel[2] = z;
+}
+
+void
+oc_resource_tag_func_desc(oc_resource_t *resource, oc_enum_t func)
+{
+  resource->tag_func_desc = func;
+}
+
+void
 oc_process_baseline_interface(oc_resource_t *resource)
 {
   if (oc_string_len(resource->name) > 0) {
@@ -129,6 +149,27 @@ oc_process_baseline_interface(oc_resource_t *resource)
   }
   oc_rep_set_string_array(root, rt, resource->types);
   oc_core_encode_interfaces_mask(oc_rep_object(root), resource->interfaces);
+  if (resource->tag_pos_desc > 0) {
+    const char *desc = oc_enum_pos_desc_to_str(resource->tag_pos_desc);
+    if (desc) {
+      oc_rep_set_text_string(root, tag-pos-desc, desc);
+    }
+  }
+  if (resource->tag_func_desc > 0) {
+    const char *func = oc_enum_to_str(resource->tag_func_desc);
+    if (func) {
+      oc_rep_set_text_string(root, tag-func-desc, func);
+    }
+  }
+  double *pos = resource->tag_pos_rel;
+  if (pos[0] != 0 || pos[1] != 0 || pos[2] != 0) {
+    oc_rep_set_key(oc_rep_object(root), "tag-pos-rel");
+    oc_rep_start_array(oc_rep_object(root), tag_pos_rel);
+    oc_rep_add_double(tag_pos_rel, pos[0]);
+    oc_rep_add_double(tag_pos_rel, pos[1]);
+    oc_rep_add_double(tag_pos_rel, pos[2]);
+    oc_rep_end_array(oc_rep_object(root), tag_pos_rel);
+  }
 }
 
 void
@@ -196,9 +237,9 @@ oc_send_response_raw(oc_request_t *request, const uint8_t *payload, size_t size,
                      oc_content_format_t content_format,
                      oc_status_t response_code)
 {
-  request->response->content_format = content_format;
+  request->response->response_buffer->content_format = content_format;
   memcpy(request->response->response_buffer->buffer, payload, size);
-  request->response->response_buffer->response_length = (uint16_t)size;
+  request->response->response_buffer->response_length = size;
   request->response->response_buffer->code = oc_status_code(response_code);
 }
 
@@ -369,9 +410,25 @@ oc_resource_set_request_handler(oc_resource_t *resource, oc_method_t method,
     break;
   }
 
-  handler->cb = callback;
-  handler->user_data = user_data;
+  if (handler) {
+    handler->cb = callback;
+    handler->user_data = user_data;
+  }
 }
+
+#ifdef OC_OSCORE
+void
+oc_resource_set_secure_mcast(oc_resource_t *resource, bool supported)
+{
+  if (resource) {
+    if (supported) {
+      resource->properties |= OC_SECURE_MCAST;
+    } else {
+      resource->properties &= ~OC_SECURE_MCAST;
+    }
+  }
+}
+#endif /* OC_OSCORE */
 
 void
 oc_set_con_write_cb(oc_con_write_cb_t callback)
@@ -421,28 +478,23 @@ oc_send_separate_response(oc_separate_response_t *handle,
 {
   oc_response_buffer_t response_buffer;
   response_buffer.buffer = handle->buffer;
-  response_buffer.response_length = (uint16_t)response_length();
+  response_buffer.response_length = response_length();
   response_buffer.code = oc_status_code(response_code);
+  response_buffer.content_format = APPLICATION_VND_OCF_CBOR;
 
   coap_separate_t *cur = oc_list_head(handle->requests), *next = NULL;
   coap_packet_t response[1];
 
   while (cur != NULL) {
     next = cur->next;
-    if (cur->observe > 0) {
-      coap_transaction_t *t =
-        coap_new_transaction(coap_get_mid(), &cur->endpoint);
+    if (cur->observe < 3) {
+      coap_transaction_t *t = coap_new_transaction(
+        coap_get_mid(), cur->token, cur->token_len, &cur->endpoint);
       if (t) {
         coap_separate_resume(response, cur,
                              (uint8_t)oc_status_code(response_code), t->mid);
-#ifdef OC_SPEC_VER_OIC
-        if (cur->endpoint.version == OIC_VER_1_1_0) {
-          coap_set_header_content_format(response, APPLICATION_CBOR);
-        } else
-#endif /* OC_SPEC_VER_OIC */
-        {
-          coap_set_header_content_format(response, APPLICATION_VND_OCF_CBOR);
-        }
+        coap_set_header_content_format(response,
+                                       response_buffer.content_format);
 
 #ifdef OC_BLOCK_WISE
         oc_blockwise_state_t *response_state = NULL;

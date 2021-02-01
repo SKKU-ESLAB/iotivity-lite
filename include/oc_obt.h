@@ -30,8 +30,7 @@
 #include "oc_uuid.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
@@ -580,7 +579,7 @@ int oc_obt_device_hard_reset(oc_uuid_t *uuid, oc_obt_device_status_cb_t cb,
                              void *data);
 
 /**
- * Provision pair-wise 128-bit pre-shared key (PSK) credentials to a Client
+ * Provision pairwise 128-bit pre-shared key (PSK) credentials to a Client
  * and Server so they may establish a secure (D)TLS session.
  *
  * Example:
@@ -589,9 +588,9 @@ int oc_obt_device_hard_reset(oc_uuid_t *uuid, oc_obt_device_status_cb_t cb,
  * provision_credentials_cb(int status, void *data)
  * {
  *   if (status >= 0) {
- *     printf("Successfully provisioned pair-wise credentials\n");
+ *     printf("Successfully provisioned pairwise credentials\n");
  *   } else {
- *     printf("ERROR provisioning pair-wise credentials\n");
+ *     printf("ERROR provisioning pairwise credentials\n");
  *   }
  * }
  *
@@ -617,6 +616,22 @@ int oc_obt_device_hard_reset(oc_uuid_t *uuid, oc_obt_device_status_cb_t cb,
  */
 int oc_obt_provision_pairwise_credentials(oc_uuid_t *uuid1, oc_uuid_t *uuid2,
                                           oc_obt_status_cb_t cb, void *data);
+
+int oc_obt_provision_pairwise_oscore_contexts(oc_uuid_t *uuid1,
+                                              oc_uuid_t *uuid2,
+                                              oc_obt_status_cb_t cb,
+                                              void *data);
+
+int oc_obt_provision_client_group_oscore_context(oc_uuid_t *uuid,
+                                                 const char *desc,
+                                                 oc_obt_device_status_cb_t cb,
+                                                 void *data);
+
+int oc_obt_provision_server_group_oscore_context(oc_uuid_t *uuid,
+                                                 oc_uuid_t *subjectuuid,
+                                                 const char *desc,
+                                                 oc_obt_device_status_cb_t cb,
+                                                 void *data);
 /**
  * Provision identity certificates
  *
@@ -708,8 +723,8 @@ int oc_obt_provision_role_certificate(oc_role_t *roles, oc_uuid_t *uuid,
  * Build a linked list of roles to provision a role certificate.
  *
  * This function will add a single role (role name and authroity) to a list of
- * rules. If the provided list of roles is empty, it will create a new list with the
- * added role.
+ * rules. If the provided list of roles is empty, it will create a new list with
+ * the added role.
  *
  * Example:
  * ```
@@ -942,7 +957,8 @@ void oc_obt_free_ace(oc_sec_ace_t *ace);
 /**
  * Provision a role ACE for the wildcard "*" resource with RW permissions.
  *
- * This is a helper function to quickly provision a role ACE for wildcard access.
+ * This is a helper function to quickly provision a role ACE for wildcard
+ * access.
  *
  * @param[in] subject the uuid or the device being provisioned
  * @param[in] role the role for the ACE
@@ -1134,7 +1150,7 @@ void oc_obt_free_acl(oc_sec_acl_t *acl);
  */
 int oc_obt_delete_ace_by_aceid(oc_uuid_t *uuid, int aceid,
                                oc_obt_status_cb_t cb, void *data);
-
+void oc_obt_set_sd_info(char *name, bool priv);
 #ifdef __cplusplus
 }
 #endif

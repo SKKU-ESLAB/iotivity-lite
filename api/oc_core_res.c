@@ -46,6 +46,7 @@ static oc_device_info_t oc_device_info[OC_MAX_NUM_DEVICES];
 static oc_platform_info_t oc_platform_info;
 
 static bool announce_con_res = false;
+static int res_latency = 0;
 static size_t device_count = 0;
 
 /* Although used several times in the OCF spec, "/oic/con" is not
@@ -76,12 +77,9 @@ oc_core_free_device_info_properties(oc_device_info_t *oc_device_info_item)
 {
 
   if (oc_device_info_item) {
-    if (oc_string_len(oc_device_info_item->name))
-      oc_free_string(&(oc_device_info_item->name));
-    if (oc_string_len(oc_device_info_item->icv))
-      oc_free_string(&(oc_device_info_item->icv));
-    if (oc_string_len(oc_device_info_item->dmv))
-      oc_free_string(&(oc_device_info_item->dmv));
+    oc_free_string(&(oc_device_info_item->name));
+    oc_free_string(&(oc_device_info_item->icv));
+    oc_free_string(&(oc_device_info_item->dmv));
   }
 }
 
@@ -89,8 +87,7 @@ void
 oc_core_shutdown(void)
 {
   size_t i;
-  if (oc_string_len(oc_platform_info.mfg_name))
-    oc_free_string(&(oc_platform_info.mfg_name));
+  oc_free_string(&(oc_platform_info.mfg_name));
 
 #ifdef OC_DYNAMIC_ALLOCATION
   if (oc_device_info) {
@@ -270,6 +267,18 @@ bool
 oc_get_con_res_announced(void)
 {
   return announce_con_res;
+}
+
+void
+oc_core_set_latency(int latency)
+{
+  res_latency = latency;
+}
+
+int
+oc_core_get_latency(void)
+{
+  return res_latency;
 }
 
 void
@@ -523,6 +532,23 @@ oc_core_get_resource_by_index(int type, size_t device)
   return &core_resources[OCF_D * device + type];
 }
 
+#ifdef OC_SECURITY
+bool
+oc_core_is_SVR(oc_resource_t *resource, size_t device)
+{
+  size_t device_svrs = OCF_D * device + OCF_SEC_DOXM;
+
+  size_t SVRs_end = (device + 1) * OCF_D - 1, i;
+  for (i = device_svrs; i <= SVRs_end; i++) {
+    if (resource == &core_resources[i]) {
+      return true;
+    }
+  }
+
+  return false;
+}
+#endif /* OC_SECURITY */
+
 bool
 oc_core_is_DCR(oc_resource_t *resource, size_t device)
 {
@@ -592,6 +618,8 @@ oc_core_get_resource_by_uri(const char *uri, size_t device)
       type = OCF_SEC_PSTAT;
     } else if (memcmp(uri + skip, "oic/sec/acl2", 12) == 0) {
       type = OCF_SEC_ACL;
+    } else if (memcmp(uri + skip, "oic/sec/ael", 11) == 0) {
+      type = OCF_SEC_AEL;
     } else if (memcmp(uri + skip, "oic/sec/cred", 12) == 0) {
       type = OCF_SEC_CRED;
     }
@@ -608,6 +636,10 @@ oc_core_get_resource_by_uri(const char *uri, size_t device)
     type = OCF_SEC_ROLES;
   }
 #endif /* OC_PKI */
+  else if ((strlen(uri) - skip) == 11 &&
+           memcmp(uri + skip, "oic/sec/sdi", 11) == 0) {
+    type = OCF_SEC_SDI;
+  }
 #endif /* OC_SECURITY */
 #ifdef OC_SOFTWARE_UPDATE
   else if ((strlen(uri) - skip) == 2 && memcmp(uri + skip, "sw", 2) == 0) {

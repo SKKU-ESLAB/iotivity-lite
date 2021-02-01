@@ -645,9 +645,6 @@ process_interface_change_event(void)
   }
 
   if (if_state_changed) {
-#ifdef OC_SECURITY
-    oc_close_all_tls_sessions();
-#endif /* OC_SECURITY */
     for (i = 0; i < num_devices; i++) {
       ip_context_t *dev = get_ip_context_for_device(i);
       oc_network_event_handler_mutex_lock();
@@ -1050,6 +1047,10 @@ oc_send_buffer(oc_message_t *message)
   int send_sock = -1;
 
   ip_context_t *dev = get_ip_context_for_device(message->endpoint.device);
+
+  if (!dev) {
+    return -1;
+  }
 
 #ifdef OC_TCP
   if (message->endpoint.flags & TCP) {
@@ -1614,6 +1615,8 @@ oc_connectivity_shutdown(size_t device)
     OC_WRN("cannot wakeup network thread");
   }
 
+  pthread_join(dev->event_thread, NULL);
+
   close(dev->server_sock);
   close(dev->mcast_sock);
 
@@ -1632,8 +1635,6 @@ oc_connectivity_shutdown(size_t device)
 #ifdef OC_TCP
   oc_tcp_connectivity_shutdown(dev);
 #endif /* OC_TCP */
-
-  pthread_join(dev->event_thread, NULL);
 
   close(dev->shutdown_pipe[1]);
   close(dev->shutdown_pipe[0]);

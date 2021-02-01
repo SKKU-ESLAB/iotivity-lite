@@ -23,19 +23,21 @@
 #include "oc_endpoint.h"
 #include "oc_rep.h"
 #include "oc_uuid.h"
+#include "oc_enums.h"
 #include "util/oc_etimer.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef enum { OC_GET = 1, OC_POST, OC_PUT, OC_DELETE } oc_method_t;
+typedef enum { OC_GET = 1, OC_POST, OC_PUT, OC_DELETE, OC_FETCH } oc_method_t;
 
 typedef enum {
   OC_DISCOVERABLE = (1 << 0),
   OC_OBSERVABLE = (1 << 1),
   OC_SECURE = (1 << 4),
   OC_PERIODIC = (1 << 6),
+  OC_SECURE_MCAST = (1 << 8)
 } oc_resource_properties_t;
 
 typedef enum {
@@ -100,7 +102,6 @@ typedef struct oc_response_t
 {
   oc_separate_response_t *separate_response;
   oc_response_buffer_t *response_buffer;
-  oc_content_format_t content_format;
 } oc_response_t;
 
 typedef enum {
@@ -135,7 +136,9 @@ typedef enum {
   OCF_SEC_DOXM,
   OCF_SEC_PSTAT,
   OCF_SEC_ACL,
+  OCF_SEC_AEL,
   OCF_SEC_CRED,
+  OCF_SEC_SDI,
   OCF_SEC_SP,
 #ifdef OC_PKI
   OCF_SEC_CSR,
@@ -202,6 +205,9 @@ struct oc_resource_s
   oc_request_handler_t delete_handler;
   oc_properties_cb_t get_properties;
   oc_properties_cb_t set_properties;
+  double tag_pos_rel[3];
+  oc_pos_description_t tag_pos_desc;
+  oc_enum_t tag_func_desc;
   uint8_t num_observers;
 #ifdef OC_COLLECTIONS
   uint8_t num_links;

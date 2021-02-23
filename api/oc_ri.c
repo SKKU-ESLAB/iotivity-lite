@@ -902,7 +902,7 @@ oc_ri_invoke_coap_entity_handler(void *request, void *response, uint8_t *buffer,
                         uri_query_len);
         }
         response_buffer.buffer = (*response_state)->buffer;
-        response_buffer.buffer_size = (uint16_t)OC_MAX_APP_DATA_SIZE;
+        response_buffer.buffer_size = (uint32_t)OC_MAX_APP_DATA_SIZE;
       }
     }
   }
